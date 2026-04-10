@@ -2,12 +2,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-
 
 # from google.colab import files
 # uploaded = files.upload()
@@ -92,7 +91,6 @@ X_test_scaled = scaler.transform(X_test)
 lr = LinearRegression()
 lr.fit(X_train_scaled, y_train)
 y_pred_lr = lr.predict(X_test_scaled)
-
 
 knn = KNeighborsRegressor(n_neighbors=5)
 knn.fit(X_train_scaled, y_train)
@@ -195,7 +193,7 @@ plt.ylabel("RMSE")
 plt.grid(True)
 plt.show()
 
-# Train final tuned KNN
+# Train tuned KNN
 knn_best = KNeighborsRegressor(n_neighbors=best_k)
 knn_best.fit(X_train_scaled, y_train)
 y_pred_knn_best = knn_best.predict(X_test_scaled)
@@ -203,6 +201,50 @@ y_pred_knn_best = knn_best.predict(X_test_scaled)
 print("Tuned KNN R2:", r2_score(y_test, y_pred_knn_best))
 print("Tuned KNN RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_knn_best)), "\n")
 
+# Improvement 5: Perform training models with cross-validation
+# Linear Regression, R2 scoring, CV=5
+lr_r2_scoring = cross_val_score(
+    lr,
+    X_encoded,
+    y,
+    scoring='r2',
+    cv=5
+)
+
+# Linear Regression, RMSE scoring, CV=5
+lr_rmse_scoring = -cross_val_score(
+    lr,
+    X_encoded,
+    y,
+    scoring='neg_root_mean_squared_error',
+    cv=5
+)
+
+print("Improved LR R2 w/ CV:", lr_r2_scoring.mean())
+print("Improved LR RMSE w/ CV:", lr_rmse_scoring.mean(), "\n")
+
+# KNN, R2 scoring, CV=5
+knn_r2_scoring = cross_val_score(
+    knn,
+    X_encoded,
+    y,
+    scoring='r2',
+    cv=5
+)
+
+# KNN, RMSE scoring, CV=5
+knn_rmse_scoring = -cross_val_score(
+    knn,
+    X_encoded,
+    y,
+    scoring='neg_root_mean_squared_error',
+    cv=5
+)
+
+print("Improved KNN R2 w/ CV:", knn_r2_scoring.mean())
+print("Improved KNN RMSE w/ CV:", knn_rmse_scoring.mean(), "\n")
+
+# Compile scores from improved models
 final_results = pd.DataFrame({
     "Model": ["Linear Regression", "KNN (Initial)", "KNN (Tuned)"],
     "R²": [
@@ -216,3 +258,5 @@ final_results = pd.DataFrame({
         round(np.sqrt(mean_squared_error(y_test, y_pred_knn_best)), 2)
     ]
 })
+
+print(final_results)
