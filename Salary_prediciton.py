@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
@@ -169,7 +170,7 @@ print("Improved KNN R2:", knn_r2)
 print("Improved KNN RMSE:", knn_rmse, "\n")
 
 # Improvement 4: Tune KNN by testing multiple K values
-k_values = range(1, 21)
+k_values = range(1, 26)
 rmse_values = []
 
 for k in k_values:
@@ -202,9 +203,20 @@ print("Tuned KNN R2:", r2_score(y_test, y_pred_knn_best))
 print("Tuned KNN RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_knn_best)), "\n")
 
 # Improvement 5: Perform training models with cross-validation
+# Build pipelines for each training model
+lr_pipe = Pipeline(
+    [('scaler', StandardScaler()),
+     ('lr', LinearRegression())]
+    )
+
+knn_pipe = Pipeline(
+    [('scaler', StandardScaler()),
+     ('knn', KNeighborsRegressor(n_neighbors=5))]
+    )
+
 # Linear Regression, R2 scoring, CV=5
 lr_r2_scoring = cross_val_score(
-    lr,
+    lr_pipe,
     X_encoded,
     y,
     scoring='r2',
@@ -213,19 +225,19 @@ lr_r2_scoring = cross_val_score(
 
 # Linear Regression, RMSE scoring, CV=5
 lr_rmse_scoring = -cross_val_score(
-    lr,
+    lr_pipe,
     X_encoded,
     y,
     scoring='neg_root_mean_squared_error',
     cv=5
 )
 
-print("Improved LR R2 w/ CV:", lr_r2_scoring.mean())
-print("Improved LR RMSE w/ CV:", lr_rmse_scoring.mean(), "\n")
+print("Linear Regression R2 w/ CV:", lr_r2_scoring.mean())
+print("Linear Regression RMSE w/ CV:", lr_rmse_scoring.mean(), "\n")
 
 # KNN, R2 scoring, CV=5
 knn_r2_scoring = cross_val_score(
-    knn,
+    knn_pipe,
     X_encoded,
     y,
     scoring='r2',
@@ -234,15 +246,71 @@ knn_r2_scoring = cross_val_score(
 
 # KNN, RMSE scoring, CV=5
 knn_rmse_scoring = -cross_val_score(
-    knn,
+    knn_pipe,
     X_encoded,
     y,
     scoring='neg_root_mean_squared_error',
     cv=5
 )
 
-print("Improved KNN R2 w/ CV:", knn_r2_scoring.mean())
-print("Improved KNN RMSE w/ CV:", knn_rmse_scoring.mean(), "\n")
+print("KNN R2 w/ CV:", knn_r2_scoring.mean())
+print("KNN RMSE w/ CV:", knn_rmse_scoring.mean(), "\n")
+
+# KNN Tuning using cross-validation, CV=5
+k_values = range(55, 66)
+cv_rmse = []
+
+for k in k_values:
+    tuned_knn_pipe = Pipeline(
+        [('scaler', StandardScaler()),
+         ('knn', KNeighborsRegressor(n_neighbors=k))]
+        )
+    tuned_knn_scoring = -cross_val_score(
+        tuned_knn_pipe,
+        X_encoded,
+        y,
+        scoring='neg_root_mean_squared_error',
+        cv=5
+        )
+    cv_rmse.append(tuned_knn_scoring.mean())
+    
+cv_best_k = k_values[np.argmin(cv_rmse)]
+cv_best_rmse = min(cv_rmse)
+
+print("Best CV K:", cv_best_k)
+print("Best CV RMSE:", cv_best_rmse, "\n")
+
+plt.figure(figsize=(8,5))
+plt.plot(k_values, cv_rmse, marker='o')
+plt.title("KNN Tuning w/ CV = 5: RMSE vs K")
+plt.xlabel("Number of Neighbors (K)")
+plt.ylabel("RMSE")
+plt.grid(True)
+plt.show()
+
+tuned_knn_pipe = Pipeline(
+    [('scaler', StandardScaler()),
+     ('knn', KNeighborsRegressor(n_neighbors=cv_best_k))]
+    )
+
+knn_best_r2_scoring = cross_val_score(
+    tuned_knn_pipe,
+    X_encoded,
+    y,
+    scoring='r2',
+    cv=5
+)
+
+knn_best_rmse_scoring = -cross_val_score(
+    tuned_knn_pipe,
+    X_encoded,
+    y,
+    scoring='neg_root_mean_squared_error',
+    cv=5
+)
+
+print("Tuned KNN R2 w/ CV:", knn_best_r2_scoring.mean())
+print("Tuned KNN RMSE w/ CV:", knn_best_rmse_scoring.mean(), "\n")
 
 # Compile scores from improved models
 final_results = pd.DataFrame({
