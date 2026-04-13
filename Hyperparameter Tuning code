@@ -1,0 +1,46 @@
+import optuna
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsRegressor
+def objective(trial):
+    
+# Hyperparameters to tune
+n_neighbors = trial.suggest_int('n_neighbors', 1, 50)
+weights = trial.suggest_categorical('weights', ['uniform', 'distance'])
+p = trial.suggest_int('p', 1, 2)  # 1 = Manhattan, 2 = Euclidean
+    
+# Pipeline
+model = Pipeline([
+    ('scaler', StandardScaler()),
+    ('knn', KNeighborsRegressor(
+        n_neighbors=n_neighbors,
+        weights=weights,
+        p=p
+    ))
+])
+    
+# Cross-validation RMSE
+scores = -cross_val_score(
+    model,
+    X_encoded,
+    y,
+    scoring='neg_root_mean_squared_error',
+    cv=5
+    )
+    
+return scores.mean()
+
+study = optuna.create_study(direction='minimize')
+study.optimize(objective, n_trials=50)
+
+best_knn = Pipeline([
+    ('scaler', StandardScaler()),
+    ('knn', KNeighborsRegressor(**study.best_params))
+])
+
+best_knn.fit(X_train, y_train)
+y_pred_optuna = best_knn.predict(X_test)
+
+print("Optuna KNN R2:", r2_score(y_test, y_pred_optuna))
+print("Optuna KNN RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_optuna)))
